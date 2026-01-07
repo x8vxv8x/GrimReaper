@@ -1,14 +1,25 @@
 package com.smd.grimreaper.skill;
 
 import com.smd.grimreaper.potion.ModPotion;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.potion.PotionEffect;
+import net.minecraft.util.EnumParticleTypes;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.SoundCategory;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityTravelToDimensionEvent;
 import net.minecraftforge.event.entity.living.EnderTeleportEvent;
@@ -16,6 +27,7 @@ import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.living.LivingHealEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+import org.lwjgl.opengl.GL11;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
@@ -273,4 +285,150 @@ public enum LifeLinkManager {
             }
         }
     }
+
+    @SubscribeEvent
+    public void onRenderWorldLast(RenderWorldLastEvent event) {
+        Minecraft mc = Minecraft.getMinecraft();
+        EntityPlayer player = mc.player;
+        World world = mc.world;
+
+        long currentTime = world.getTotalWorldTime();
+        if (!LifeLinkManager.INSTANCE.hasValidBinding(player, currentTime)) return;
+
+        EntityLivingBase boss = LifeLinkManager.INSTANCE.getBossForPlayer(player, currentTime);
+        if (boss == null) return;
+
+        Vec3d playerEyes = player.getPositionEyes(event.getPartialTicks());
+        Vec3d bossEyes = boss.getPositionEyes(event.getPartialTicks());
+
+        Vec3d playerCenter = playerEyes.subtract(0, player.getEyeHeight() - player.height / 2.0, 0);
+        Vec3d bossCenter = bossEyes.subtract(0, boss.getEyeHeight() - boss.height / 2.0, 0);
+
+        double camX = mc.getRenderManager().viewerPosX;
+        double camY = mc.getRenderManager().viewerPosY;
+        double camZ = mc.getRenderManager().viewerPosZ;
+
+        Vec3d p0 = new Vec3d(playerCenter.x - camX, playerCenter.y - camY, playerCenter.z - camZ);
+        Vec3d p2 = new Vec3d(bossCenter.x - camX, bossCenter.y - camY, bossCenter.z - camZ);
+
+        float time = currentTime + event.getPartialTicks();
+        double offsetY = 2.0 * Math.sin(time * 0.1);
+        Vec3d midPoint = playerCenter.add(bossCenter).scale(0.5);
+        Vec3d controlPoint = new Vec3d(midPoint.x - camX, midPoint.y - camY + offsetY, midPoint.z - camZ);
+
+        int chargeDuration = 60;
+        float chargeProgress = Math.min(1.0f, (float)(currentTime % chargeDuration) / chargeDuration);
+
+        float rStart = 0.6f, gStart = 0.0f, bStart = 0.6f;
+        float rEnd = 1.0f, gEnd = 0.0f, bEnd = 0.8f;
+
+        float alpha = 0.4f + 0.4f * chargeProgress;
+        float lineWidth = 2.0f + 6.0f * chargeProgress;
+
+        GlStateManager.pushMatrix();
+        GlStateManager.disableTexture2D();
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.enableBlend();
+        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+        GL11.glLineWidth(lineWidth);
+        GL11.glBegin(GL11.GL_LINE_STRIP);
+
+        int segments = 60;
+        for (int i = 0; i <= segments; i++) {
+            float t = i / (float)segments;
+
+            double x = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * controlPoint.x + t * t * p2.x;
+            double y = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * controlPoint.y + t * t * p2.y;
+            double z = (1 - t) * (1 - t) * p0.z + 2 * (1 - t) * t * controlPoint.z + t * t * p2.z;
+
+            float r = rStart + (rEnd - rStart) * t;
+            float g = gStart + (gEnd - gStart) * t;
+            float b = bStart + (bEnd - bStart) * t;
+
+            GlStateManager.color(r, g, b, alpha);
+            GL11.glVertex3d(x, y, z);
+
+            // 每个 t 值都贴合生成粒子
+            if (mc.world != null && mc.world.isRemote) {
+                mc.world.spawnParticle(EnumParticleTypes.DAMAGE_INDICATOR,
+                        x + camX, y + camY, z + camZ,
+                        0.0, 0.0, 0.0); // 无速度，瞬移贴合
+            }
+        }
+
+        GL11.glEnd();
+
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableLighting();
+        GlStateManager.enableDepth();
+        GlStateManager.disableBlend();
+        GlStateManager.popMatrix();
+    }
+
+
+
+    @SubscribeEvent
+    public void onRenderOverlay(RenderGameOverlayEvent.Post event) {
+        if (event.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
+
+        Minecraft mc = Minecraft.getMinecraft();
+        EntityPlayer player = mc.player;
+        World world = mc.world;
+        long currentTime = world.getTotalWorldTime();
+
+        if (!LifeLinkManager.INSTANCE.hasValidBinding(player, currentTime)) return;
+
+        ScaledResolution res = new ScaledResolution(mc);
+        int screenWidth = res.getScaledWidth();
+        int screenHeight = res.getScaledHeight();
+
+        ResourceLocation heartTexture = new ResourceLocation("minecraft", "textures/items/heart.png");
+        mc.getTextureManager().bindTexture(heartTexture);
+
+        GlStateManager.pushMatrix();
+        GlStateManager.enableBlend();
+        GlStateManager.disableAlpha();
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 0.8f); // 白色，略微透明
+
+        int size = 16;
+        int padding = 4;
+        float zLevel = 0.0f;
+
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder buffer = tessellator.getBuffer();
+
+        // 四个角的位置
+        int[][] positions = {
+                {padding, padding}, // 左上
+                {screenWidth - size - padding, padding}, // 右上
+                {padding, screenHeight - size - padding}, // 左下
+                {screenWidth - size - padding, screenHeight - size - padding} // 右下
+        };
+
+        for (int[] pos : positions) {
+            int x = pos[0];
+            int y = pos[1];
+
+            buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
+            buffer.pos(x, y + size, zLevel).tex(0, 1).endVertex();
+            buffer.pos(x + size, y + size, zLevel).tex(1, 1).endVertex();
+            buffer.pos(x + size, y, zLevel).tex(1, 0).endVertex();
+            buffer.pos(x, y, zLevel).tex(0, 0).endVertex();
+            tessellator.draw();
+        }
+
+        GlStateManager.enableDepth();
+        GlStateManager.enableAlpha();
+        GlStateManager.enableLighting();
+        GlStateManager.disableBlend();
+        GlStateManager.popMatrix();
+    }
+
+
+
+
 }

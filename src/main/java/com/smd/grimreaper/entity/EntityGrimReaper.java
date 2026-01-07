@@ -88,7 +88,7 @@ public class EntityGrimReaper extends EntityMob {
         this.tasks.addTask(6, new EntityAIWatchClosest(this, EntityPlayer.class, 8.0F));
         this.tasks.addTask(5, new EntityAILookIdle(this));
         this.tasks.addTask(2, new EntityAIAttackMelee(this, 1.1D, false));
-        this.targetTasks.addTask(1, new EntityAIHurtByTarget(this, false, new Class[0]));
+        this.targetTasks.addTask(1, new EntityAIHurtByTarget(this, false));
         this.targetTasks.addTask(2, aiNearestAttackableTarget);
     }
 
@@ -249,7 +249,9 @@ public class EntityGrimReaper extends EntityMob {
                     teleportTo(newX, player.posY, newZ);
                 }}
 
-            arrow.setDead();
+            if (arrow != null) {
+                arrow.setDead();
+            }
             return false;
         }
 
@@ -467,10 +469,6 @@ public class EntityGrimReaper extends EntityMob {
             timeDebtCooldown--;
         }
 
-        double prevX = this.prevPosX;
-        double prevY = this.prevPosY;
-        double prevZ = this.prevPosZ;
-
         super.onUpdate();
         extinguish();
 
@@ -491,6 +489,7 @@ public class EntityGrimReaper extends EntityMob {
                 setAttackState(EnumReaperAttackState.IDLE);
             }
         }
+
         //护甲韧性同步
         armorSyncTimer++;
         if (armorSyncTimer >= 20) { // 每 20 tick（约 1 秒）执行一次
