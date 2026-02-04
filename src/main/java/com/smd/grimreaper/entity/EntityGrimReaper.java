@@ -145,6 +145,10 @@ public class EntityGrimReaper extends EntityMob {
     @Override
     public boolean attackEntityFrom(DamageSource source, float damage) {
 
+        if(damage >= this.getMaxHealth() * 0.25F) {
+            damage = this.getMaxHealth() * 0.25F;
+        }
+
         if (source.getTrueSource() == null || !(source.getTrueSource() instanceof EntityPlayer)) {
             return false;
         }
@@ -304,6 +308,21 @@ public class EntityGrimReaper extends EntityMob {
         }
 
         return result;
+    }
+
+    @Override
+    public void heal(float amount) {
+
+        if (amount < 0) {
+            float damage = -amount;
+            float maxAllowedDamage = this.getMaxHealth() * 0.25F;
+
+            if (damage > maxAllowedDamage) {
+                amount = -maxAllowedDamage;
+            }
+        }
+
+        super.heal(amount);
     }
 
     protected void attackEntity(Entity entity, float damage) {
