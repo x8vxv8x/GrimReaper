@@ -745,6 +745,9 @@ public class EntityGrimReaper extends EntityMob {
                 motionY -= 0.03F * moveAmount;
             }
         }
+
+        if (isRiding())
+            dismountRidingEntity();
     }
 
     @Override
