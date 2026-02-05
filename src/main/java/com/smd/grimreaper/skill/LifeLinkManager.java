@@ -298,6 +298,9 @@ public enum LifeLinkManager {
         EntityLivingBase boss = LifeLinkManager.INSTANCE.getBossForPlayer(player, currentTime);
         if (boss == null) return;
 
+        double distance = player.getDistance(boss);
+        if (distance >= 50) return;
+
         Vec3d playerEyes = player.getPositionEyes(event.getPartialTicks());
         Vec3d bossEyes = boss.getPositionEyes(event.getPartialTicks());
 
@@ -349,13 +352,6 @@ public enum LifeLinkManager {
 
             GlStateManager.color(r, g, b, alpha);
             GL11.glVertex3d(x, y, z);
-
-            // 每个 t 值都贴合生成粒子
-            if (mc.world != null && mc.world.isRemote) {
-                mc.world.spawnParticle(EnumParticleTypes.DAMAGE_INDICATOR,
-                        x + camX, y + camY, z + camZ,
-                        0.0, 0.0, 0.0); // 无速度，瞬移贴合
-            }
         }
 
         GL11.glEnd();
@@ -366,69 +362,4 @@ public enum LifeLinkManager {
         GlStateManager.disableBlend();
         GlStateManager.popMatrix();
     }
-
-
-
-    @SubscribeEvent
-    public void onRenderOverlay(RenderGameOverlayEvent.Post event) {
-        if (event.getType() != RenderGameOverlayEvent.ElementType.ALL) return;
-
-        Minecraft mc = Minecraft.getMinecraft();
-        EntityPlayer player = mc.player;
-        World world = mc.world;
-        long currentTime = world.getTotalWorldTime();
-
-        if (!LifeLinkManager.INSTANCE.hasValidBinding(player, currentTime)) return;
-
-        ScaledResolution res = new ScaledResolution(mc);
-        int screenWidth = res.getScaledWidth();
-        int screenHeight = res.getScaledHeight();
-
-        ResourceLocation heartTexture = new ResourceLocation("minecraft", "textures/items/heart.png");
-        mc.getTextureManager().bindTexture(heartTexture);
-
-        GlStateManager.pushMatrix();
-        GlStateManager.enableBlend();
-        GlStateManager.disableAlpha();
-        GlStateManager.disableLighting();
-        GlStateManager.disableDepth();
-        GlStateManager.color(1.0f, 1.0f, 1.0f, 0.8f); // 白色，略微透明
-
-        int size = 16;
-        int padding = 4;
-        float zLevel = 0.0f;
-
-        Tessellator tessellator = Tessellator.getInstance();
-        BufferBuilder buffer = tessellator.getBuffer();
-
-        // 四个角的位置
-        int[][] positions = {
-                {padding, padding}, // 左上
-                {screenWidth - size - padding, padding}, // 右上
-                {padding, screenHeight - size - padding}, // 左下
-                {screenWidth - size - padding, screenHeight - size - padding} // 右下
-        };
-
-        for (int[] pos : positions) {
-            int x = pos[0];
-            int y = pos[1];
-
-            buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
-            buffer.pos(x, y + size, zLevel).tex(0, 1).endVertex();
-            buffer.pos(x + size, y + size, zLevel).tex(1, 1).endVertex();
-            buffer.pos(x + size, y, zLevel).tex(1, 0).endVertex();
-            buffer.pos(x, y, zLevel).tex(0, 0).endVertex();
-            tessellator.draw();
-        }
-
-        GlStateManager.enableDepth();
-        GlStateManager.enableAlpha();
-        GlStateManager.enableLighting();
-        GlStateManager.disableBlend();
-        GlStateManager.popMatrix();
-    }
-
-
-
-
 }

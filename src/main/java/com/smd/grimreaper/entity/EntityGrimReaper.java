@@ -67,7 +67,6 @@ public class EntityGrimReaper extends EntityMob {
     private final BossInfoServer bossInfo = (BossInfoServer) (new BossInfoServer(this.getDisplayName(), BossInfo.Color.PURPLE, BossInfo.Overlay.PROGRESS)).setDarkenSky(true);
     private EntityAINearestAttackableTarget aiNearestAttackableTarget = new EntityAINearestAttackableTarget(this, EntityPlayer.class, true);
     private int healingCooldown;
-    private int timesHealed;
 
     private int lifeLinkCooldown = 0;
     private static final int LIFE_LINK_DURATION = 200; // 10秒
@@ -144,10 +143,6 @@ public class EntityGrimReaper extends EntityMob {
 
     @Override
     public boolean attackEntityFrom(DamageSource source, float damage) {
-
-        if(damage >= this.getMaxHealth() * 0.25F) {
-            damage = this.getMaxHealth() * 0.25F;
-        }
 
         if (source.getTrueSource() == null || !(source.getTrueSource() instanceof EntityPlayer)) {
             return false;
@@ -291,6 +286,10 @@ public class EntityGrimReaper extends EntityMob {
             lastDamageTime = currentTime;
 
             damage *= (1.0f - damageReduction);
+        }
+
+        if(damage >= this.getMaxHealth() * 0.25F) {
+            damage = this.getMaxHealth() * 0.25F;
         }
 
         boolean result = super.attackEntityFrom(source, damage);
@@ -603,7 +602,6 @@ public class EntityGrimReaper extends EntityMob {
         if (getAttackState() == EnumReaperAttackState.REST) {
             if (!world.isRemote && getStateTransitionCooldown() == 1) {
                 setAttackState(EnumReaperAttackState.IDLE);
-                timesHealed++;
             } else if (!world.isRemote && getStateTransitionCooldown() % 50 == 0) {
                 float healAmount = this.getMaxHealth() * 0.03f;
                 this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
