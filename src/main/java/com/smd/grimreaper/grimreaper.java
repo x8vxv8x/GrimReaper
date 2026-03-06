@@ -28,6 +28,6 @@ public class grimreaper {
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
         EntityRegistry.registerModEntity(new ResourceLocation(Tags.MOD_ID, "GrimReaper"), EntityGrimReaper.class, EntityGrimReaper.class.getSimpleName(), 1121, this, 50, 2, true);
-        LifeLinkManager.init();
+        proxy.init(event);
     }
 }

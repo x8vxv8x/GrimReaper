@@ -1,15 +1,12 @@
 package com.smd.grimreaper.proxy;
 
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+
 public class ServerProxy {
     public void registerEntityRenderers() {
-        // Server-side, no rendering.
-    }
-
-    public void registerEventHandlers() {
 
     }
 
-    public void registerModelMeshers() {
-
+    public void init(FMLInitializationEvent event) {
     }
 }
