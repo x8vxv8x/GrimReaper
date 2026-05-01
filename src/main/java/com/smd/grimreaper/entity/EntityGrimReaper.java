@@ -4,10 +4,7 @@ import com.smd.grimreaper.enums.EnumReaperAttackState;
 import com.smd.grimreaper.skill.LifeLinkManager;
 import com.smd.grimreaper.sound.Sounds;
 import net.minecraft.client.resources.I18n;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.MoverType;
-import net.minecraft.entity.SharedMonsterAttributes;
+import net.minecraft.entity.*;
 import net.minecraft.entity.ai.*;
 import net.minecraft.entity.ai.attributes.AttributeModifier;
 import net.minecraft.entity.ai.attributes.IAttributeInstance;
@@ -33,6 +30,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.BossInfo;
 import net.minecraft.world.BossInfoServer;
+import net.minecraft.world.EnumDifficulty;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -55,6 +53,8 @@ public class EntityGrimReaper extends EntityMob {
     private long lastDamageTime = 0;
     private int noClipTicks = 0;
     private int armorSyncTimer = 0;
+    private boolean canBeRemoved = false;
+    private boolean allowHealthDecrease = false;
 
     private static final DataParameter<Integer> BLOCK_COUNTER = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
     private static final DataParameter<Integer> INVINCIBLE_TICKS = EntityDataManager.createKey(EntityGrimReaper.class, DataSerializers.VARINT);
@@ -71,6 +71,10 @@ public class EntityGrimReaper extends EntityMob {
 
     private static final String ARMOR_SYNC_NAME = "SyncedArmorModifier";
     private static final String TOUGHNESS_SYNC_NAME = "SyncedToughnessModifier";
+
+    public boolean canBeRemoved() {
+        return canBeRemoved;
+    }
 
     public EntityGrimReaper(World world) {
         super(world);
@@ -273,7 +277,9 @@ public class EntityGrimReaper extends EntityMob {
             damage = this.getMaxHealth() * 0.25F;
         }
 
+        allowHealthDecrease = true;
         boolean result = super.attackEntityFrom(source, damage);
+        allowHealthDecrease = false;
 
         if (damage < this.getHealth()) {
             float anyDamageHeal = this.getMaxHealth() * 0.002f;
@@ -285,16 +291,9 @@ public class EntityGrimReaper extends EntityMob {
 
     @Override
     public void heal(float amount) {
-
         if (amount < 0) {
-            float damage = -amount;
-            float maxAllowedDamage = this.getMaxHealth() * 0.25F;
-
-            if (damage > maxAllowedDamage) {
-                amount = -maxAllowedDamage;
-            }
+            amount = -amount;
         }
-
         super.heal(amount);
     }
 
@@ -342,15 +341,13 @@ public class EntityGrimReaper extends EntityMob {
                         player.setHealth(0.0F);
                         player.sendMessage(new TextComponentString("死神收割了你的灵魂"));
                     } else {
-                        // 分段伤害计算
-                        float physicalDamage = rawDamage * 0.6F;  // 60%物理伤害
-                        float fireDamage = rawDamage * 0.3F;     // 30%火焰伤害
-                        float magicDamage = rawDamage * 0.1F;    // 10%魔法伤害
+                        float physicalDamage = rawDamage * 0.6F;
+                        float fireDamage = rawDamage * 0.3F;
+                        float magicDamage = rawDamage * 0.1F;
 
                         player.attackEntityFrom(DamageSource.causeMobDamage(this), physicalDamage);
-                        player.attackEntityFrom(DamageSource.IN_FIRE, fireDamage); // 火焰伤害
-                        player.attackEntityFrom(DamageSource.MAGIC, magicDamage);  // 魔法伤害
-                        //攻击吸取经验
+                        player.attackEntityFrom(DamageSource.IN_FIRE, fireDamage);
+                        player.attackEntityFrom(DamageSource.MAGIC, magicDamage);
                         if (player.experienceLevel > 0 || player.experienceTotal > 0) {
                             int totalExp = player.experienceTotal;
 
@@ -639,7 +636,10 @@ public class EntityGrimReaper extends EntityMob {
             float playerHealthPercent = nearestPlayer.getMaxHealth() > 0 ?
                     nearestPlayer.getHealth() / nearestPlayer.getMaxHealth() : 0;
 
+            allowHealthDecrease = true;
             this.setHealth(playerHealthPercent * this.getMaxHealth());
+            allowHealthDecrease = false;
+
             nearestPlayer.setHealth(reaperHealthPercent * nearestPlayer.getMaxHealth());
             nearestPlayer.sendMessage(new TextComponentString("死神发动了灵魂契约"));
 
@@ -679,6 +679,14 @@ public class EntityGrimReaper extends EntityMob {
 
         if (isRiding())
             dismountRidingEntity();
+
+        if (!world.isRemote && this.isDead && !canBeRemoved && this.getHealth() > 0.0F) {
+            this.isDead = false;
+            this.deathTime = 0;
+            if (!world.loadedEntityList.contains(this)) {
+                world.loadedEntityList.add(this);
+            }
+        }
     }
 
     @Override
@@ -689,7 +697,7 @@ public class EntityGrimReaper extends EntityMob {
     }
 
     @Override
-    public void onDeath(DamageSource source) {
+    public void onDeath(DamageSource cause) {
         LifeLinkManager.INSTANCE.removeBindingByBoss(this.getUniqueID());
 
         IAttributeInstance healthAttr = this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH);
@@ -700,8 +708,9 @@ public class EntityGrimReaper extends EntityMob {
                 healthAttr.removeModifier(modifier);
             }
         }
-
-        super.onDeath(source);
+        this.canBeRemoved = true;
+        super.onDeath(cause);
+        this.canBeRemoved = false;
     }
 
 
@@ -712,7 +721,7 @@ public class EntityGrimReaper extends EntityMob {
 
     @Override
     protected boolean canDespawn() {
-        return true;
+        return false;
     }
 
     public int getStateTransitionCooldown() {
@@ -792,5 +801,32 @@ public class EntityGrimReaper extends EntityMob {
     public void removeTrackingPlayer(EntityPlayerMP player) {
         super.removeTrackingPlayer(player);
         this.bossInfo.removePlayer(player);
+    }
+
+    @Override
+    public void onKillCommand() {
+    }
+
+    @Override
+    public void setDead() {
+        if (!this.world.isRemote) {
+            if (!canBeRemoved) {
+                if (!(this.world.getDifficulty() == EnumDifficulty.PEACEFUL
+                        && this.isCreatureType(EnumCreatureType.MONSTER, false))) {
+                    return;
+                }
+            }
+        }
+        super.setDead();
+    }
+
+    @Override
+    public void setHealth(float health) {
+        if (!this.world.isRemote) {
+            if (health < this.getHealth() && !allowHealthDecrease) {
+                return;
+            }
+        }
+        super.setHealth(health);
     }
 }

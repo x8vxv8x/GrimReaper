@@ -1,12 +1,15 @@
 package com.smd.grimreaper.client.event;
 
 import com.smd.grimreaper.entity.EntityGrimReaper;
+import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.world.EnumDifficulty;
 import net.minecraftforge.event.entity.living.LivingHealEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 public class EventHooks {
 
@@ -37,6 +40,26 @@ public class EventHooks {
         } else {
             float missingPercent = 1.0f - healthPercent;
             event.setAmount(event.getAmount() * (1.0f + missingPercent));
+        }
+    }
+
+    @SubscribeEvent
+    public void onWorldTick(TickEvent.WorldTickEvent event) {
+        if (event.world.isRemote || event.phase != TickEvent.Phase.START) return;
+
+        for (EntityGrimReaper reaper : event.world.getEntities(EntityGrimReaper.class, e -> true)) {
+            if (!reaper.isDead || reaper.canBeRemoved() || reaper.getHealth() <= 0.0F) continue;
+
+            if (event.world.getDifficulty() == EnumDifficulty.PEACEFUL
+                    && reaper.isCreatureType(EnumCreatureType.MONSTER, false)) {
+                continue;
+            }
+
+            reaper.isDead = false;
+            reaper.deathTime = 0;
+            if (!event.world.loadedEntityList.contains(reaper)) {
+                event.world.loadedEntityList.add(reaper);
+            }
         }
     }
 }
