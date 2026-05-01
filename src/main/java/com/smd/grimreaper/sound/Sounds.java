@@ -16,8 +16,6 @@ public final class Sounds {
     public static final SoundEvent reaper_death = new SoundEvent(loc_reaper_death);
     private static final ResourceLocation loc_reaper_block = new ResourceLocation("grimreaper:reaper.block");
     public static final SoundEvent reaper_block = new SoundEvent(loc_reaper_block);
-    private static final ResourceLocation loc_reaper_summon = new ResourceLocation("grimreaper:reaper.summon");
-    public static final SoundEvent reaper_summon = new SoundEvent(loc_reaper_summon);
 
     public static void register(RegistryEvent.Register<SoundEvent> event) {
         IForgeRegistry<SoundEvent> registry = event.getRegistry();
@@ -26,14 +24,12 @@ public final class Sounds {
         reaper_idle.setRegistryName(loc_reaper_idle);
         reaper_death.setRegistryName(loc_reaper_death);
         reaper_block.setRegistryName(loc_reaper_block);
-        reaper_summon.setRegistryName(loc_reaper_summon);
 
         registry.register(reaper_scythe_out);
         registry.register(reaper_scythe_swing);
         registry.register(reaper_idle);
         registry.register(reaper_death);
         registry.register(reaper_block);
-        registry.register(reaper_summon);
     }
 }
 
