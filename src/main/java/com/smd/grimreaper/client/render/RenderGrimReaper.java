@@ -15,14 +15,7 @@ public class RenderGrimReaper<T extends EntityGrimReaper> extends RenderBiped<T>
     }
 
     @Override
-    public void doRender(T entity, double posX, double posY, double posZ, float angle, float offsetY) {
-        super.doRender(entity, posX, posY, posZ, angle, offsetY);
-    }
-
-    @Override
     protected void preRenderCallback(T entity, float partialTickTime) {
-        super.preRenderCallback(entity, partialTickTime);
-
         double scale = 1.3D;
         GL11.glScaled(scale, scale, scale);
     }
