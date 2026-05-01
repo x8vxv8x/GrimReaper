@@ -4,14 +4,19 @@ import com.smd.grimreaper.client.event.EventHooks;
 import com.smd.grimreaper.entity.EntityGrimReaper;
 import com.smd.grimreaper.proxy.ServerProxy;
 import com.smd.grimreaper.skill.LifeLinkManager;
+import com.smd.grimreaper.sound.Sounds;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.SoundEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.registry.EntityRegistry;
 
+@Mod.EventBusSubscriber
 @Mod(modid = Tags.MOD_ID, name = Tags.MOD_NAME, version = Tags.VERSION)
 public class grimreaper {
 
@@ -29,5 +34,10 @@ public class grimreaper {
     public void init(FMLInitializationEvent event) {
         EntityRegistry.registerModEntity(new ResourceLocation(Tags.MOD_ID, "GrimReaper"), EntityGrimReaper.class, EntityGrimReaper.class.getSimpleName(), 1121, this, 50, 2, true);
         proxy.init(event);
+    }
+
+    @SubscribeEvent
+    public static void onSoundRegistration(RegistryEvent.Register<SoundEvent> event) {
+        Sounds.register(event);
     }
 }
