@@ -4,9 +4,7 @@ public enum EnumReaperAttackState {
     IDLE(0),
     PRE(1),
     POST(2),
-    REST(3),
-    BLOCK(4),
-    TELEPORTING(5);
+    BLOCK(3);
 
     private final int id;
 

@@ -3,7 +3,6 @@ package com.smd.grimreaper.entity;
 import com.smd.grimreaper.enums.EnumReaperAttackState;
 import com.smd.grimreaper.skill.LifeLinkManager;
 import com.smd.grimreaper.sound.Sounds;
-import com.smd.grimreaper.util.Util;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -14,16 +13,12 @@ import net.minecraft.entity.ai.attributes.AttributeModifier;
 import net.minecraft.entity.ai.attributes.IAttributeInstance;
 import net.minecraft.entity.effect.EntityLightningBolt;
 import net.minecraft.entity.monster.EntityMob;
-import net.minecraft.entity.monster.EntitySkeleton;
-import net.minecraft.entity.monster.EntityZombie;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.entity.projectile.EntityArrow;
-import net.minecraft.init.Items;
 import net.minecraft.init.MobEffects;
 import net.minecraft.init.SoundEvents;
-import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
@@ -66,16 +61,16 @@ public class EntityGrimReaper extends EntityMob {
 
     private final BossInfoServer bossInfo = (BossInfoServer) (new BossInfoServer(this.getDisplayName(), BossInfo.Color.PURPLE, BossInfo.Overlay.PROGRESS)).setDarkenSky(true);
     private EntityAINearestAttackableTarget aiNearestAttackableTarget = new EntityAINearestAttackableTarget(this, EntityPlayer.class, true);
-    private int healingCooldown;
+
+    private double lastVerticalError = 0.0;
+    private double verticalIntegral = 0.0;
 
     private int lifeLinkCooldown = 0;
-    private static final int LIFE_LINK_DURATION = 200; // 10秒
-    private static final int LIFE_LINK_COOLDOWN = 450; // 25秒冷却
+    private static final int LIFE_LINK_DURATION = 200;
+    private static final int LIFE_LINK_COOLDOWN = 450;
 
     private static final String ARMOR_SYNC_NAME = "SyncedArmorModifier";
     private static final String TOUGHNESS_SYNC_NAME = "SyncedToughnessModifier";
-
-    private float floatingTicks;
 
     public EntityGrimReaper(World world) {
         super(world);
@@ -178,12 +173,7 @@ public class EntityGrimReaper extends EntityMob {
                     world.playSound(null, player.posX, player.posY, player.posZ, SoundEvents.ENTITY_ENDERMEN_STARE, SoundCategory.HOSTILE, 1.0F, 1.0F);
                 }}}
 
-
-
-
-        // Ignore wall damage and fire damage.
         if (source == DamageSource.IN_WALL || source == DamageSource.ON_FIRE || source.isExplosion() || source == DamageSource.IN_FIRE) {
-            // Teleport out of any walls we may end up in.
             if (source == DamageSource.IN_WALL) {
                 teleportTo(this.posX, this.posY + 3, this.posZ);
             }
@@ -239,7 +229,7 @@ public class EntityGrimReaper extends EntityMob {
         if (source.getImmediateSource() instanceof EntityArrow) {
             EntityArrow arrow = (EntityArrow) source.getImmediateSource();
 
-            if (arrow != null && arrow.shootingEntity instanceof EntityPlayer && getAttackState() != EnumReaperAttackState.REST) {
+            if (arrow != null && arrow.shootingEntity instanceof EntityPlayer) {
                 EntityPlayer player = (EntityPlayer) arrow.shootingEntity;
                 if (player != null && !player.isDead) {
                     double newX = player.posX + (rand.nextFloat() > 0.5F ? 2 : -2);
@@ -252,15 +242,6 @@ public class EntityGrimReaper extends EntityMob {
                 arrow.setDead();
             }
             return false;
-        }
-
-        else if (this.getAttackState() == EnumReaperAttackState.REST) {
-            int mobCount = world.getEntitiesWithinAABB(EntityMob.class, this.getEntityBoundingBox().grow(10.0D)).stream()
-                    .filter(mob -> mob != this && !mob.isDead)
-                    .toArray().length;
-
-            float reductionRatio = MathHelper.clamp(mobCount * 0.06F, 0.0F, 0.6F);
-            damage *= (0.8F - reductionRatio);
         }
 
         if (source != null) {
@@ -293,13 +274,6 @@ public class EntityGrimReaper extends EntityMob {
         }
 
         boolean result = super.attackEntityFrom(source, damage);
-
-        if (!world.isRemote && this.getHealth() <= (this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).getBaseValue() / 2) && healingCooldown == 0) {
-            setAttackState(EnumReaperAttackState.REST);
-            healingCooldown = 1200;
-            teleportTo(this.posX, this.posY + 8, this.posZ);
-            setStateTransitionCooldown(400);
-        }
 
         if (damage < this.getHealth()) {
             float anyDamageHeal = this.getMaxHealth() * 0.002f;
@@ -518,14 +492,14 @@ public class EntityGrimReaper extends EntityMob {
         //生命链接
         if (!world.isRemote &&
                 this.getAttackTarget() != null &&
-                lifeLinkCooldown == 0) {
+                lifeLinkCooldown == 0 && world.getTotalWorldTime() % 20 == 0) {
 
             EntityPlayer closest = null;
             double minDist = Double.MAX_VALUE;
 
             for (EntityPlayer player : world.getEntitiesWithinAABB(
                     EntityPlayer.class,
-                    this.getEntityBoundingBox().grow(16.0D) // 16格范围
+                    this.getEntityBoundingBox().grow(16.0D)
             )) {
                 double dist = this.getDistanceSq(player);
                 if (dist < minDist) {
@@ -576,8 +550,7 @@ public class EntityGrimReaper extends EntityMob {
         }
 
         EntityLivingBase entityToAttack = this.getAttackTarget();
-        if (entityToAttack != null && !entityToAttack.isDead
-                && getAttackState() != EnumReaperAttackState.REST) {
+        if (entityToAttack != null && !entityToAttack.isDead) {
             attackEntity(entityToAttack, 5.0F);
             this.getMoveHelper().setMoveTo(entityToAttack.posX, entityToAttack.posY, entityToAttack.posZ, 0.6F); // 提高移动速度
 
@@ -595,58 +568,11 @@ public class EntityGrimReaper extends EntityMob {
             this.motionZ = targetVec.z * speedFactor;
         }
 
-        if (world.isRemote && getAttackState() == EnumReaperAttackState.REST) {
-            floatingTicks += 0.1F;
-        }
-
-        if (getAttackState() == EnumReaperAttackState.REST) {
-            if (!world.isRemote && getStateTransitionCooldown() == 1) {
-                setAttackState(EnumReaperAttackState.IDLE);
-            } else if (!world.isRemote && getStateTransitionCooldown() % 50 == 0) {
-                float healAmount = this.getMaxHealth() * 0.03f;
-                this.setHealth(Math.min(this.getHealth() + healAmount, this.getMaxHealth()));
-
-                for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(6.0D))) {
-                    Vec3d direction = new Vec3d(player.posX - this.posX, 0, player.posZ - this.posZ).normalize();
-                    double pushPower = 0.6D;
-
-                    player.motionX += direction.x * pushPower;
-                    player.motionZ += direction.z * pushPower;
-
-                }
-
-                int dX = rand.nextInt(8) + 4 * (rand.nextFloat() > 0.50F ? 1 : -1);
-                int dZ = rand.nextInt(8) + 4 * (rand.nextFloat() > 0.50F ? 1 : -1);
-                int y = Util.getSpawnSafeTopLevel(world, (int) posX + dX, 256, (int) posZ + dZ);
-
-                EntityLightningBolt bolt = new EntityLightningBolt(world, dX, y, dZ, false);
-                world.addWeatherEffect(bolt);
-
-                // Also spawn a random skeleton or zombie.
-                if (!world.isRemote) {
-                    EntityMob mob = rand.nextFloat() > 0.50F ? new EntityZombie(world) : new EntitySkeleton(world);
-                    mob.setPosition(posX + dX + 4, y, posZ + dZ + 4);
-
-                    if (mob instanceof EntitySkeleton) {
-                        mob.setItemStackToSlot(EntityEquipmentSlot.MAINHAND, new ItemStack(Items.BOW));
-                    }
-
-                    world.spawnEntity(mob);
-                }
-            }
-        }
-
         if (this.getHealth() <= 0.0F) {
             motionX = 0;
             motionY = 0;
             motionZ = 0;
             return;
-        }
-
-        if (getAttackState() == EnumReaperAttackState.REST) {
-            motionX = 0;
-            motionY = 0;
-            motionZ = 0;
         }
 
         fallDistance = 0.0F;
@@ -662,16 +588,12 @@ public class EntityGrimReaper extends EntityMob {
             setStateTransitionCooldown(getStateTransitionCooldown() - 1);
         }
 
-        if (healingCooldown > 0) {
-            healingCooldown--;
-        }
-
         if (entityToAttack != null && entityToAttack.isDead) {
             this.setAttackTarget(null);
             setAttackState(EnumReaperAttackState.IDLE);
         }
 
-        if (!world.isRemote && this.getAttackState() != EnumReaperAttackState.REST) {
+        if (!world.isRemote) {
             if (world.getTotalWorldTime() % 20 == 0) {
                 for (EntityPlayer player : world.getEntitiesWithinAABB(EntityPlayer.class, this.getEntityBoundingBox().grow(4.0D))) {
                     if (!player.isDead) {
@@ -695,7 +617,7 @@ public class EntityGrimReaper extends EntityMob {
 
             int clearCount = this.dataManager.get(EFFECT_CLEAR_COUNT);
 
-            if (clearCount > 0) {
+            if (clearCount > 0 && world.getTotalWorldTime() % 10 == 0) {
                 double percentBoost = clearCount * 0.015;
 
                 IAttributeInstance healthAttr = this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH);
@@ -728,20 +650,31 @@ public class EntityGrimReaper extends EntityMob {
             soulSwapCooldown--;
         }
 
-        if (entityToAttack != null && getAttackState() != EnumReaperAttackState.REST) {
-            double verticalDiff = entityToAttack.posY - this.posY;
-            double horizontalDistance = this.getDistance(entityToAttack.posX, this.posY, entityToAttack.posZ);
-            float moveAmount = MathHelper.clamp((8F - (float)horizontalDistance) / 8F * 4F, 0, 2.5F);
+        if (entityToAttack != null) {
 
-            if (verticalDiff > 1.0F) { // 玩家在Boss上方较大距离
-                motionY += 0.05F * moveAmount; // 加速上升
-            } else if (verticalDiff > 0.1F) { // 玩家略高于Boss
-                motionY += 0.03F * moveAmount;
-            } else if (verticalDiff < -1.0F) { // 玩家在Boss下方较大距离
-                motionY -= 0.05F * moveAmount; // 加速下降
-            } else if (verticalDiff < -0.1F) { // 玩家略低于Boss
-                motionY -= 0.03F * moveAmount;
-            }
+            double targetY = entityToAttack.posY + entityToAttack.getEyeHeight();
+            double myY = this.posY + this.getEyeHeight();
+            double error = targetY - myY;
+
+            double kp = 0.12;
+            double ki = 0.02;
+            double kd = 0.06;
+
+            verticalIntegral += error;
+            verticalIntegral = MathHelper.clamp(verticalIntegral, -3.0, 3.0);
+
+            double derivative = error - lastVerticalError;
+            lastVerticalError = error;
+
+            double output = kp * error + ki * verticalIntegral + kd * derivative;
+
+            double maxForce = 0.15;
+            double force = MathHelper.clamp(output, -maxForce, maxForce);
+
+            this.motionY += force;
+
+            double maxSpeed = 0.6;
+            this.motionY = MathHelper.clamp(this.motionY, -maxSpeed, maxSpeed);
         }
 
         if (isRiding())
@@ -790,28 +723,15 @@ public class EntityGrimReaper extends EntityMob {
         this.dataManager.set(STATE_TRANSITION_COOLDOWN, value);
     }
 
-    public float getFloatingTicks() {
-        return floatingTicks;
-    }
-
     private void teleportTo(double x, double y, double z) {
         if (!world.isRemote) {
 
             if (!world.isBlockLoaded(new BlockPos(x, y, z))) return;
 
-            EnumReaperAttackState current = getAttackState();
-            if (current != EnumReaperAttackState.TELEPORTING) {
-                setAttackState(EnumReaperAttackState.TELEPORTING);
-            }
-
             this.setPositionAndUpdate(x, y, z);
 
             if (rand.nextFloat() < 0.9F) {
                 this.playSound(SoundEvents.ENTITY_ENDERMEN_TELEPORT, 1.5F, 1.0F);
-            }
-
-            if (current != EnumReaperAttackState.TELEPORTING) {
-                setAttackState(current);
             }
         }
     }
@@ -862,20 +782,12 @@ public class EntityGrimReaper extends EntityMob {
         return false;
     }
 
-    /**
-     * Add the given player to the list of players tracking this entity. For instance, a player may track a boss in
-     * order to view its associated boss bar.
-     */
     @Override
     public void addTrackingPlayer(EntityPlayerMP player) {
         super.addTrackingPlayer(player);
         this.bossInfo.addPlayer(player);
     }
 
-    /**
-     * Removes the given player from the list of players tracking this entity. See {@link Entity#addTrackingPlayer} for
-     * more information on tracking.
-     */
     @Override
     public void removeTrackingPlayer(EntityPlayerMP player) {
         super.removeTrackingPlayer(player);

@@ -47,16 +47,6 @@ public class ModelGrimReaper extends ModelBiped {
     private ModelRenderer scytheHandleBlock;
     private ModelRenderer scytheHeadBlock;
 
-    private ModelRenderer cowlRest;
-    private ModelRenderer rightArmRest;
-    private ModelRenderer leftLegRest;
-    private ModelRenderer chestRest;
-    private ModelRenderer leftArmRest;
-    private ModelRenderer rightLegRest;
-    private ModelRenderer scytheHandleRest;
-    private ModelRenderer scytheHeadRest;
-    private ModelRenderer headRest;
-
     public ModelGrimReaper() {
         this.textureWidth = 64;
         this.textureHeight = 64;
@@ -201,45 +191,6 @@ public class ModelGrimReaper extends ModelBiped {
         this.scytheHeadBlock.setRotationPoint(-18.5F, -3.7F, -10.1F);
         this.scytheHeadBlock.addBox(0.0F, 0.0F, 0.5F, 16, 16, 0, 0.0F);
         this.setRotateAngle(scytheHeadBlock, 1.2292353921796064F, 1.5481070465189704F, 0.0F);
-
-        this.rightArmRest = new ModelRenderer(this, 40, 16);
-        this.rightArmRest.setRotationPoint(-5.0F, 2.0F, 0.0F);
-        this.rightArmRest.addBox(-3.0F, -2.0F, -2.0F, 4, 12, 4, 0.0F);
-        this.setRotateAngle(rightArmRest, 0.091106186954104F, -0.045553093477052F, 0.4553564018453205F);
-        this.rightLegRest = new ModelRenderer(this, 0, 16);
-        this.rightLegRest.setRotationPoint(-1.9F, 12.0F, 0.0F);
-        this.rightLegRest.addBox(-2.0F, 0.0F, -2.0F, 4, 12, 4, 0.0F);
-        this.setRotateAngle(rightLegRest, 0.045553093477052F, 0.091106186954104F, 0.0F);
-        this.leftArmRest = new ModelRenderer(this, 40, 16);
-        this.leftArmRest.mirror = true;
-        this.leftArmRest.setRotationPoint(5.0F, 2.0F, 0.0F);
-        this.leftArmRest.addBox(-1.0F, -2.0F, -2.0F, 4, 12, 4, 0.0F);
-        this.setRotateAngle(leftArmRest, -1.6845917940249266F, -1.5481070465189704F, 0.9560913642424937F);
-        this.chestRest = new ModelRenderer(this, 16, 16);
-        this.chestRest.setRotationPoint(0.0F, 0.0F, 0.1F);
-        this.chestRest.addBox(-4.0F, 0.0F, -2.0F, 8, 12, 4, 0.0F);
-        this.setRotateAngle(chestRest, 0.0F, 0.091106186954104F, 0.0F);
-        this.leftLegRest = new ModelRenderer(this, 0, 16);
-        this.leftLegRest.mirror = true;
-        this.leftLegRest.setRotationPoint(1.9F, 12.0F, 0.0F);
-        this.leftLegRest.addBox(-2.0F, 0.0F, -2.0F, 4, 12, 4, 0.0F);
-        this.setRotateAngle(leftLegRest, 0.045553093477052F, 0.045553093477052F, 0.0F);
-        this.headRest = new ModelRenderer(this, 0, 0);
-        this.headRest.setRotationPoint(0.0F, 0.0F, 0.0F);
-        this.headRest.addBox(-4.0F, -8.0F, -4.0F, 8, 8, 8, 0.0F);
-        this.setRotateAngle(headRest, 1.0927506446736497F, 0.0F, 0.03159045946109736F);
-        this.scytheHeadRest = new ModelRenderer(this, 0, 32);
-        this.scytheHeadRest.setRotationPoint(-0.1F, -7.3F, -11.7F);
-        this.scytheHeadRest.addBox(0.0F, 0.0F, 0.5F, 16, 16, 0, 0.0F);
-        this.setRotateAngle(scytheHeadRest, 0.091106186954104F, 1.2747884856566583F, 0.091106186954104F);
-        this.cowlRest = new ModelRenderer(this, 32, 0);
-        this.cowlRest.setRotationPoint(0.0F, 0.0F, 0.0F);
-        this.cowlRest.addBox(-4.0F, -8.0F, -4.0F, 8, 8, 8, 0.5F);
-        this.setRotateAngle(cowlRest, 1.0471975511965976F, 0.0F, 0.0F);
-        this.scytheHandleRest = new ModelRenderer(this, 36, 32);
-        this.scytheHandleRest.setRotationPoint(-1.0F, 7.0F, -10.1F);
-        this.scytheHandleRest.addBox(0.5F, -15.5F, 0.5F, 1, 31, 1, 0.0F);
-        this.setRotateAngle(scytheHandleRest, 0.091106186954104F, 1.2747884856566583F, 0.091106186954104F);
     }
 
     @Override
@@ -276,31 +227,6 @@ public class ModelGrimReaper extends ModelBiped {
             this.chestBlock.render(f5);
             this.leftArmBlock.render(f5);
             this.scytheHeadBlock.render(f5);
-        } else if (reaper.getAttackState() == EnumReaperAttackState.REST) {
-
-            GL11.glPushMatrix();
-            {
-                double amt = Math.cos(reaper.getFloatingTicks()) / 4;
-                GL11.glTranslated(0.0D, amt, 0.0D);
-
-                this.rightArmRest.render(f5);
-                this.rightLegRest.render(f5);
-                this.leftArmRest.render(f5);
-                this.chestRest.render(f5);
-                this.leftLegRest.render(f5);
-                this.cowlRest.render(f5);
-
-                GL11.glPushMatrix();
-                {
-                    double amt2 = Math.cos(reaper.getFloatingTicks()) / 8;
-                    GL11.glTranslated(0.0D, amt2, 0.0D);
-
-                    this.scytheHeadRest.render(f5);
-                    this.scytheHandleRest.render(f5);
-                }
-                GL11.glPopMatrix();
-            }
-            GL11.glPopMatrix();
         } else {
             rightLeg.rotateAngleX = MathHelper.clamp(MathHelper.cos(100F * 0.6662F + 3.141593F) * 2.5F * f1, 0.0F, 1.1F);
             leftLeg.rotateAngleX = MathHelper.clamp(MathHelper.cos(100F * 0.6662F + 3.141593F) * 2.5F * f1, 0.0F, 1.1F);
